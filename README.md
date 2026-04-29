@@ -78,3 +78,4 @@ discord-bill-bot/
 ├── .env.example
 └── package.json
 ```
+-# Đây là 1 project tôi làm ra trong lúc chán nên ae đừng quan tâm đến chất lượng nhiều. Đây là open-source nên ae có thể làm j cx được :>
