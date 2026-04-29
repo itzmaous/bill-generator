@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bill Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#111;--surface:#1a1a1a;--surface2:#222;--border:#2e2e2e;
+  --text:#f0ede8;--muted:#666;--muted2:#444;
+  --accent:#f5e6c8;--accent2:#d4b483;--green:#7dcea0;--red:#e07070;
+  --border2:#333;
+  --receipt:#faf7f2;--receipt-muted:#888;--receipt-border:#ddd;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:1fr 420px;min-height:100vh;gap:0}
+@media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+
+/* LEFT PANEL — EDITOR */
+.editor{padding:40px 36px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:0;overflow-y:auto}
+
+.logo{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--muted);margin-bottom:32px}
+.logo span{color:var(--accent2)}
+
+.section{margin-bottom:28px}
+.section-label{font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* INPUTS */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;letter-spacing:.5px}
+input[type=text],input[type=number],textarea,select{
+  width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 13px;outline:none;
+  transition:border-color .15s,box-shadow .15s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(212,180,131,.08)}
+textarea{resize:vertical;min-height:56px;line-height:1.5}
+select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* ITEMS TABLE */
+.items-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.item-row{display:grid;grid-template-columns:1fr 72px 88px 36px;gap:8px;align-items:center}
+.item-row input{font-size:13px;padding:8px 10px}
+.item-row .del-btn{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s;flex-shrink:0}
+.item-row .del-btn:hover{border-color:var(--red);color:var(--red);background:rgba(224,112,112,.06)}
+.item-header{display:grid;grid-template-columns:1fr 72px 88px 36px;gap:8px;margin-bottom:4px}
+.item-header span{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);padding:0 2px}
+
+.add-btn{width:100%;padding:10px;border:1px dashed var(--border2,#333);border-radius:8px;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.add-btn:hover{border-color:var(--accent2);color:var(--accent2);background:rgba(212,180,131,.04)}
+
+/* EXTRA OPTIONS */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:13px;color:var(--text)}
+.toggle-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.toggle{position:relative;width:38px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border);border-radius:11px;cursor:pointer;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;width:16px;height:16px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.2s}
+.toggle input:checked + .toggle-slider{background:var(--accent2);border-color:var(--accent2)}
+.toggle input:checked + .toggle-slider::before{transform:translateX(16px);background:#fff}
+
+/* PRINT BTN */
+.print-btn{margin-top:auto;padding-top:24px;display:flex;gap:10px}
+.btn{flex:1;padding:14px 20px;border-radius:10px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s;border:none;letter-spacing:.3px}
+.btn-primary{background:var(--accent);color:#111}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px);box-shadow:0 8px 24px rgba(212,180,131,.2)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--muted);transform:translateY(-1px)}
+
+/* RIGHT PANEL — RECEIPT PREVIEW */
+.preview-panel{background:#e8e4de;display:flex;flex-direction:column;align-items:center;padding:40px 24px;overflow-y:auto;position:relative}
+.preview-panel::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(0,0,0,.03) 31px,rgba(0,0,0,.03) 32px);pointer-events:none}
+
+.preview-title{font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#999;margin-bottom:20px}
+
+/* RECEIPT */
+.receipt{
+  width:100%;max-width:320px;
+  background:var(--receipt);
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px;color:#1a1a1a;
+  padding:28px 24px;
+  box-shadow:0 4px 20px rgba(0,0,0,.18),0 1px 0 rgba(255,255,255,.8) inset;
+  position:relative;
+  /* Torn paper top edge */
+}
+.receipt::before{
+  content:'';position:absolute;top:-10px;left:0;right:0;height:12px;
+  background:linear-gradient(135deg,#e8e4de 25%,transparent 25%) -6px 0,
+             linear-gradient(225deg,#e8e4de 25%,transparent 25%) -6px 0,
+             linear-gradient(315deg,#e8e4de 25%,transparent 25%),
+             linear-gradient(45deg,#e8e4de 25%,transparent 25%);
+  background-size:12px 12px;background-color:var(--receipt);
+}
+.receipt::after{
+  content:'';position:absolute;bottom:-10px;left:0;right:0;height:12px;
+  background:linear-gradient(135deg,#e8e4de 25%,transparent 25%) -6px 0,
+             linear-gradient(225deg,#e8e4de 25%,transparent 25%) -6px 0,
+             linear-gradient(315deg,#e8e4de 25%,transparent 25%),
+             linear-gradient(45deg,#e8e4de 25%,transparent 25%);
+  background-size:12px 12px;background-color:var(--receipt);
+}
+
+.r-center{text-align:center}
+.r-bold{font-weight:700;letter-spacing:.5px}
+.r-big{font-size:16px;font-weight:700;letter-spacing:1px}
+.r-xl{font-size:20px;font-weight:700;letter-spacing:2px}
+.r-small{font-size:10px;color:var(--receipt-muted)}
+.r-muted{color:var(--receipt-muted)}
+
+.r-div{border:none;border-top:1px dashed var(--receipt-border);margin:12px 0}
+.r-div-solid{border:none;border-top:2px solid #1a1a1a;margin:10px 0}
+.r-div-double{border:none;height:4px;border-top:2px solid #1a1a1a;border-bottom:2px solid #1a1a1a;margin:10px 0}
+.r-spacer{height:8px}
+.r-spacer-sm{height:4px}
+
+.r-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;line-height:1.8}
+.r-row .r-dots{flex:1;border-bottom:1px dotted #ccc;margin:0 4px;position:relative;top:-3px}
+.r-row-indent{padding-left:12px;color:var(--receipt-muted);font-size:11px}
+
+.r-total-row{display:flex;justify-content:space-between;font-size:16px;font-weight:700;line-height:2}
+.r-barcode{margin:16px auto 4px;display:flex;align-items:flex-end;gap:1px;height:40px}
+.r-barcode-bar{background:#1a1a1a;width:2px}
+.r-qr{width:72px;height:72px;margin:8px auto;display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.r-qr-cell{background:#1a1a1a;border-radius:1px}
+.r-qr-cell.w{background:transparent}
+
+/* RECEIPT PRINT ANIMATION */
+@keyframes printIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.receipt{animation:printIn .4s cubic-bezier(.4,0,.2,1) both}
+
+/* ACTIONS below receipt */
+.receipt-actions{display:flex;gap:10px;margin-top:28px;width:100%;max-width:320px}
+.r-btn{flex:1;padding:11px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.r-btn-primary{background:#1a1a1a;color:#f0ede8}
+.r-btn-primary:hover{background:#333;transform:translateY(-1px)}
+.r-btn-secondary{background:rgba(0,0,0,.1);color:#333;border:1px solid rgba(0,0,0,.15)}
+.r-btn-secondary:hover{background:rgba(0,0,0,.15)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- LEFT: EDITOR -->
+  <div class="editor">
+    <div class="logo">🧾 <span>BILL</span>GEN</div>
+
+    <!-- SHOP INFO -->
+    <div class="section">
+      <div class="section-label">Thông tin cửa hàng</div>
+      <div class="field"><label>Tên cửa hàng</label><input type="text" id="shopName" value="" oninput="render()"></div>
+      <div class="row2">
+        <div class="field"><label>Địa chỉ</label><input type="text" id="shopAddr" value="" oninput="render()"></div>
+        <div class="field"><label>SĐT</label><input type="text" id="shopPhone" value="" oninput="render()"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Mã hóa đơn</label><input type="text" id="billId" value="" oninput="render()"></div>
+        <div class="field"><label>Bàn / Khu vực</label><input type="text" id="tableNo" value="" oninput="render()"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Thu ngân</label><input type="text" id="cashier" value="" oninput="render()"></div>
+        <div class="field"><label>Khách hàng</label><input type="text" id="customer" value="" placeholder="(để trống)" oninput="render()"></div>
+      </div>
+    </div>
+
+    <!-- ITEMS -->
+    <div class="section">
+      <div class="section-label">Danh sách món</div>
+      <div class="item-header">
+        <span>Tên món</span><span>SL</span><span>Đơn giá</span><span></span>
+      </div>
+      <div class="items-list" id="itemsList"></div>
+      <button class="add-btn" onclick="addItem()">＋ Thêm món</button>
+    </div>
+
+    <!-- EXTRAS -->
+    <div class="section">
+      <div class="section-label">Phụ thu & chiết khấu</div>
+      <div class="row3">
+        <div class="field"><label>Thuế VAT (%)</label><input type="number" id="vat" value="0" min="0" max="100" oninput="render()"></div>
+        <div class="field"><label>Giảm giá (%)</label><input type="number" id="disc" value="0" min="0" max="100" oninput="render()"></div>
+        <div class="field"><label>Phí dịch vụ (%)</label><input type="number" id="svc" value="0" min="0" max="100" oninput="render()"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Phương thức TT</label>
+          <select id="payMethod" onchange="render()">
+            <option>Tiền mặt</option>
+            <option>Chuyển khoản</option>
+            <option>Thẻ ngân hàng</option>
+            <option>Ví MoMo</option>
+            <option>ZaloPay</option>
+          </select>
+        </div>
+        <div class="field"><label>Tiền khách đưa (₫)</label><input type="number" id="given" value="" placeholder="tự động" oninput="render()"></div>
+      </div>
+    </div>
+
+    <!-- OPTIONS -->
+    <div class="section">
+      <div class="section-label">Tùy chọn in</div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Hiện lời cảm ơn</div></div>
+        <label class="toggle"><input type="checkbox" id="showThanks" checked onchange="render()"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Hiện mã QR</div></div>
+        <label class="toggle"><input type="checkbox" id="showBarcode" checked onchange="render()"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Hiện WiFi</div></div>
+        <label class="toggle"><input type="checkbox" id="showWifi" onchange="render()"><span class="toggle-slider"></span></label>
+      </div>
+      <div id="wifiField" style="display:none;margin-top:10px">
+        <div class="row2">
+          <div class="field"><label>Tên WiFi</label><input type="text" id="wifiName" value="" oninput="render()"></div>
+          <div class="field"><label>Mật khẩu</label><input type="text" id="wifiPass" value="" oninput="render()"></div>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="toggle-label">Ghi chú / khuyến mãi</div></div>
+        <label class="toggle"><input type="checkbox" id="showNote" onchange="render()"><span class="toggle-slider"></span></label>
+      </div>
+      <div id="noteField" style="display:none;margin-top:10px">
+        <div class="field"><label>Nội dung</label><textarea id="noteText" oninput="render()"></textarea></div>
+      </div>
+    </div>
+
+    <div class="print-btn">
+      <button class="btn btn-secondary" onclick="resetAll()">↺ Reset</button>
+      <button class="btn btn-primary" onclick="saveImage(this)">📷 Lưu ảnh PNG</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: RECEIPT PREVIEW -->
+  <div class="preview-panel">
+    <div class="preview-title">Xem trước hóa đơn</div>
+    <div class="receipt" id="receipt"></div>
+    <div class="receipt-actions">
+      <button class="r-btn r-btn-primary" style="flex:1" onclick="saveImage(this)">📷 Lưu ảnh PNG</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let items = [];
+
+// Debounce render to avoid flooding async calls on rapid input
+let _renderTimer = null;
+function scheduleRender(){
+  clearTimeout(_renderTimer);
+  _renderTimer = setTimeout(()=>render(), 80);
+}
+
+function fmt(n){return n.toLocaleString('vi-VN')+'đ'}
+function fmtN(n){return n.toLocaleString('vi-VN')}
+
+function addItem(){
+  items.push({name:'',qty:1,price:0});
+  renderItems(); scheduleRender();
+}
+function removeItem(i){items.splice(i,1); renderItems(); scheduleRender();}
+
+function renderItems(){
+  const list=document.getElementById('itemsList');
+  list.innerHTML=items.map((it,i)=>`
+    <div class="item-row">
+      <input type="text" placeholder="Tên món..." value="${it.name.replace(/"/g,'&quot;')}" oninput="items[${i}].name=this.value;scheduleRender()">
+      <input type="number" min="1" value="${it.qty}" oninput="items[${i}].qty=+this.value||1;scheduleRender()">
+      <input type="number" min="0" value="${it.price}" oninput="items[${i}].price=+this.value||0;scheduleRender()">
+      <button class="del-btn" onclick="removeItem(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function getVals(){
+  return{
+    shopName: document.getElementById('shopName').value||'CỬA HÀNG',
+    shopAddr: document.getElementById('shopAddr').value,
+    shopPhone: document.getElementById('shopPhone').value,
+    billId: document.getElementById('billId').value,
+    tableNo: document.getElementById('tableNo').value,
+    cashier: document.getElementById('cashier').value,
+    customer: document.getElementById('customer').value,
+    vat: +document.getElementById('vat').value||0,
+    disc: +document.getElementById('disc').value||0,
+    svc: +document.getElementById('svc').value||0,
+    payMethod: document.getElementById('payMethod').value,
+    given: document.getElementById('given').value,
+    showThanks: document.getElementById('showThanks').checked,
+    showBarcode: document.getElementById('showBarcode').checked,
+    showWifi: document.getElementById('showWifi').checked,
+    wifiName: document.getElementById('wifiName')?.value||'',
+    wifiPass: document.getElementById('wifiPass')?.value||'',
+    showNote: document.getElementById('showNote').checked,
+    noteText: document.getElementById('noteText')?.value||'',
+  }
+}
+
+function getNow(){
+  const d=new Date();
+  const dd=String(d.getDate()).padStart(2,'0');
+  const mm=String(d.getMonth()+1).padStart(2,'0');
+  const yyyy=d.getFullYear();
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mi=String(d.getMinutes()).padStart(2,'0');
+  const ss=String(d.getSeconds()).padStart(2,'0');
+  return{date:`${dd}/${mm}/${yyyy}`,time:`${hh}:${mi}:${ss}`}
+}
+
+// Generate QR as base64 data URL using a hidden div
+function makeQR(text){
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data='
+    + encodeURIComponent(text)
+    + '&bgcolor=faf7f2&color=1a1a1a&margin=2';
+}
+
+// Build receipt HTML string (sync part, no QR)
+function buildReceiptHTML(v, date, time){
+  const sub=items.reduce((s,it)=>s+(it.qty*it.price),0);
+  const discAmt=Math.round(sub*v.disc/100);
+  const afterDisc=sub-discAmt;
+  const vatAmt=Math.round(afterDisc*v.vat/100);
+  const svcAmt=Math.round(afterDisc*v.svc/100);
+  const total=afterDisc+vatAmt+svcAmt;
+  const givenAmt=v.given?+v.given:total;
+  const change=Math.max(0,givenAmt-total);
+
+  let h=`
+    <div class="r-center r-big">${v.shopName}</div>
+    <div class="r-spacer-sm"></div>
+    ${v.shopAddr?`<div class="r-center r-small">${v.shopAddr}</div>`:''}
+    ${v.shopPhone?`<div class="r-center r-small">☎ ${v.shopPhone}</div>`:''}
+    <div class="r-spacer"></div>
+    <div class="r-center r-small r-muted">====================================================</div>
+    <div class="r-center r-bold" style="font-size:14px;letter-spacing:2px">HÓA ĐƠN BÁN HÀNG</div>
+    <div class="r-center r-small r-muted">====================================================</div>
+    <div class="r-spacer-sm"></div>
+    <div class="r-row"><span>Số HĐ:</span><span class="r-bold">${v.billId}</span></div>
+    <div class="r-row"><span>Ngày:</span><span>${date}</span></div>
+    <div class="r-row"><span>Giờ:</span><span>${time}</span></div>
+    ${v.tableNo?`<div class="r-row"><span>Khu vực:</span><span>${v.tableNo}</span></div>`:''}
+    ${v.cashier?`<div class="r-row"><span>Thu ngân:</span><span>${v.cashier}</span></div>`:''}
+    ${v.customer?`<div class="r-row"><span>Khách:</span><span>${v.customer}</span></div>`:''}
+    <div class="r-spacer-sm"></div>
+    <div class="r-small r-muted">--------------------------------------------------</div>
+    <div class="r-row" style="color:#555;font-size:11px">
+      <span style="flex:1">MÓN</span>
+      <span style="width:24px;text-align:center">SL</span>
+      <span style="width:56px;text-align:right">GIÁ</span>
+      <span style="width:64px;text-align:right">T.TIỀN</span>
+    </div>
+    <div class="r-small r-muted">--------------------------------------------------</div>
+  `;
+
+  items.forEach(it=>{
+    if(!it.name&&!it.price) return;
+    h+=`
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px;line-height:1.9;font-size:12px">
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${it.name||'—'}</span>
+        <span style="width:24px;text-align:center;color:#555">${it.qty}</span>
+        <span style="width:56px;text-align:right;color:#777;font-size:10px">${fmtN(it.price)}</span>
+        <span style="width:64px;text-align:right;font-weight:600">${fmtN(it.qty*it.price)}</span>
+      </div>`;
+  });
+
+  h+=`<div class="r-small r-muted">------------------------------------------------</div><div class="r-spacer-sm"></div>`;
+  h+=`<div class="r-row"><span>Tạm tính</span><span>${fmt(sub)}</span></div>`;
+  if(v.disc>0) h+=`<div class="r-row" style="color:#c0392b"><span>Giảm giá (${v.disc}%)</span><span>- ${fmt(discAmt)}</span></div>`;
+  if(v.svc>0)  h+=`<div class="r-row"><span>Phí dịch vụ (${v.svc}%)</span><span>${fmt(svcAmt)}</span></div>`;
+  if(v.vat>0)  h+=`<div class="r-row"><span>VAT (${v.vat}%)</span><span>${fmt(vatAmt)}</span></div>`;
+
+  h+=`
+    <div class="r-spacer-sm"></div>
+    <div class="r-small r-muted">==================================================</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:17px;font-weight:700;line-height:2.2;letter-spacing:.5px">
+      <span>TỔNG CỘNG</span><span>${fmt(total)}</span>
+    </div>
+    <div class="r-small r-muted">==================================================</div>
+    <div class="r-spacer-sm"></div>
+    <div class="r-row"><span>Thanh toán</span><span>${v.payMethod}</span></div>`;
+
+  if(v.payMethod==='Tiền mặt'){
+    h+=`<div class="r-row"><span>Tiền nhận</span><span>${givenAmt>=total?fmt(givenAmt):'—'}</span></div>`;
+    if(givenAmt>total) h+=`<div class="r-row r-bold"><span>Tiền thối</span><span>${fmt(change)}</span></div>`;
+  }
+
+  if(v.showWifi&&v.wifiName){
+    h+=`
+      <div class="r-spacer"></div>
+      <div class="r-small r-muted">--------------------------------------------------</div>
+      <div class="r-center r-small" style="font-size:11px">📶 FREE WIFI</div>
+      <div class="r-center r-small">Tên: <strong>${v.wifiName}</strong></div>
+      <div class="r-center r-small">Pass: <strong>${v.wifiPass}</strong></div>`;
+  }
+
+  if(v.showNote&&v.noteText){
+    h+=`
+      <div class="r-spacer"></div>
+      <div class="r-small r-muted">---------------------------------------------------</div>
+      <div class="r-center r-small" style="white-space:pre-wrap;line-height:1.6">${v.noteText}</div>`;
+  }
+
+  if(v.showThanks){
+    h+=`
+      <div class="r-spacer"></div>
+      <div class="r-small r-muted">--------------------------------------------------</div>
+      <div class="r-center r-bold" style="font-size:13px">Cảm ơn quý khách!</div>
+      <div class="r-center r-small r-muted">Hẹn gặp lại lần sau</div>`;
+  }
+
+  // QR placeholder — filled after async resolve
+  if(v.showBarcode){
+    h+=`
+      <div class="r-spacer"></div>
+      <div class="r-small r-muted">--------------------------------------------------</div>
+      <div style="text-align:center;margin:10px 0 4px">
+        <img id="qrImg" src="" style="width:100px;height:100px;image-rendering:pixelated;display:none">
+        <div id="qrPlaceholder" style="width:100px;height:100px;display:inline-flex;align-items:center;justify-content:center;background:#eee;font-size:10px;color:#aaa">QR...</div>
+      </div>
+      <div class="r-center r-small r-muted" style="font-size:9px;letter-spacing:1.5px">QUÉT ĐỂ XEM HÓA ĐƠN</div>`;
+  }
+
+  h+=`<div class="r-spacer"></div>`;
+  return h;
+}
+
+let _renderSeq=0;
+async function render(){
+  // Toggle side-panel fields
+  document.getElementById('wifiField').style.display=document.getElementById('showWifi').checked?'block':'none';
+  document.getElementById('noteField').style.display=document.getElementById('showNote').checked?'block':'none';
+
+  const v=getVals();
+  const {date,time}=getNow();
+  const seq=++_renderSeq; // stale-render guard
+
+  // 1. Render sync content immediately so the preview is never blank
+  document.getElementById('receipt').innerHTML=buildReceiptHTML(v,date,time);
+
+  // 2. Async: fill in QR if needed
+  if(v.showBarcode){
+    const qrText=`${v.shopName} | ${v.billId} | ${v.tableNo}`;
+    const qrSrc=await makeQR(qrText);
+    if(_renderSeq!==seq) return; // a newer render already replaced us
+    const img=document.getElementById('qrImg');
+    const ph=document.getElementById('qrPlaceholder');
+    if(img && qrSrc){
+      img.src=qrSrc;
+      img.style.display='inline-block';
+      if(ph) ph.style.display='none';
+    }
+  }
+}
+
+async function saveImage(btn){
+  const orig=btn.textContent;
+  btn.textContent='⏳ Đang xuất...';
+  btn.disabled=true;
+
+  try{
+    // Use the live receipt element directly — all styles are already in the page
+    const el=document.getElementById('receipt');
+
+    // Temporarily disable animation so html2canvas captures clean state
+    el.style.animation='none';
+    await new Promise(r=>setTimeout(r,60));
+
+    const canvas=await html2canvas(el,{
+      scale:3,
+      backgroundColor:'#faf7f2',
+      useCORS:true,
+      allowTaint:true,
+      logging:false,
+    });
+
+    el.style.animation='';
+
+    const link=document.createElement('a');
+    const billId=document.getElementById('billId').value||'bill';
+    link.download=`hoadon-${billId}.png`;
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+  }catch(e){
+    alert('Lỗi xuất ảnh: '+e.message);
+  }finally{
+    btn.textContent=orig;
+    btn.disabled=false;
+  }
+}
+
+function resetAll(){
+  document.getElementById('shopName').value='';
+  document.getElementById('shopAddr').value='';
+  document.getElementById('shopPhone').value='';
+  document.getElementById('billId').value='HD-'+String(Math.floor(Math.random()*99999)).padStart(5,'0');
+  document.getElementById('tableNo').value='';
+  document.getElementById('cashier').value='';
+  document.getElementById('customer').value='';
+  document.getElementById('vat').value=0;
+  document.getElementById('disc').value=0;
+  document.getElementById('svc').value=0;
+  document.getElementById('given').value='';
+  items=[{name:'',qty:1,price:0}];
+  renderItems(); render();
+}
+
+// Replace all oninput="render()" calls — attach via JS to use scheduleRender
+document.querySelectorAll('[oninput="render()"]').forEach(el=>{
+  el.setAttribute('oninput','scheduleRender()');
+});
+document.querySelectorAll('[onchange="render()"]').forEach(el=>{
+  el.setAttribute('onchange','scheduleRender()');
+});
+
+document.getElementById('billId').value='HD-'+String(Math.floor(Math.random()*99999)).padStart(5,'0');
+renderItems();
+render();
+</script>
+</body>
+</html>
