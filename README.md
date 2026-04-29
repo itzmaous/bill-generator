@@ -75,7 +75,10 @@ discord-bill-bot/
 ├── components.js     # Embed, buttons, dropdown
 ├── modals.js         # Các modal nhập liệu
 ├── register-commands.js  # Đăng ký slash command
+├── bill-generator.html # Bản web cho ae dùng chơi chơi
 ├── .env.example
 └── package.json
 ```
+
+## BONUS: File ```bill-generator.html``` là bonus cho ae chơi :>
 -# Đây là 1 project tôi làm ra trong lúc chán nên ae đừng quan tâm đến chất lượng nhiều. Đây là open-source nên ae có thể làm j cx được :>
